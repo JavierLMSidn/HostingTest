@@ -3,6 +3,7 @@ import os
 import requests
 import time
 import logging
+from datetime import datetime, timedelta, timezone
 
 # CONFIGURACIÓN DESDE VARIABLES DE ENTORNO
 BREVO_A_API_KEY = os.getenv("BREVO_A_API_KEY")
@@ -16,13 +17,15 @@ HEADERS_B = {"api-key": BREVO_B_API_KEY, "accept": "application/json", "Content-
 
 logging.basicConfig(filename='sync_log.txt', level=logging.INFO, format='%(asctime)s %(message)s')
 
-def obtener_contactos(lista_id, headers):
+def obtener_contactos_modificados_hoy(lista_id, headers):
     contactos = []
     limit = 500
     offset = 0
 
+    hoy = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0).isoformat() + "Z"
+
     while True:
-        url = f"{API_BASE_URL}/contacts?listId={lista_id}&limit={limit}&offset={offset}"
+        url = f"{API_BASE_URL}/contacts?listId={lista_id}&limit={limit}&offset={offset}&modifiedSince={hoy}"
         r = requests.get(url, headers=headers)
         r.raise_for_status()
         data = r.json()
@@ -35,7 +38,6 @@ def obtener_contactos(lista_id, headers):
     return contactos
 
 def agregar_contactos(lista_id, contactos, existentes):
-    #LÓGICA DE FILTRADO
     if not contactos:
         return
 
@@ -59,12 +61,12 @@ def agregar_contactos(lista_id, contactos, existentes):
         time.sleep(0.2)
 
 def sincronizar_listas():
-    logging.info("Iniciando sincronización de contactos...")
-    origen = obtener_contactos(LIST_ID_ORIGEN, HEADERS_A)
-    destino = obtener_contactos(LIST_ID_DESTINO, HEADERS_B)
+    logging.info("Iniciando sincronización de contactos modificados hoy...")
+    origen = obtener_contactos_modificados_hoy(LIST_ID_ORIGEN, HEADERS_A)
+    destino = obtener_contactos_modificados_hoy(LIST_ID_DESTINO, HEADERS_B)
     existentes = {c.get("email") for c in destino if c.get("email")}
     agregar_contactos(LIST_ID_DESTINO, origen, existentes)
-    logging.info(f"Sincronización completa. Total nuevos contactos: {len([c for c in origen if c.get('email') not in existentes])}")
+    logging.info(f"Sincronización completa. Total nuevos contactos hoy: {len([c for c in origen if c.get('email') not in existentes])}")
 
 if __name__ == "__main__":
     sincronizar_listas()
