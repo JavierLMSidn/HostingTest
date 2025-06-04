@@ -40,6 +40,7 @@ def obtener_contactos_modificados_hoy(lista_id, headers):
     return contactos
 
 def agregar_contactos(lista_id, contactos, existentes):
+    #LÓGICA FILTRADO DE CONTACTOS
     if not contactos:
         return 0
 
