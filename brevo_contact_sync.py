@@ -16,14 +16,14 @@ HEADERS_B = {"api-key": BREVO_B_API_KEY, "accept": "application/json", "Content-
 
 logging.basicConfig(filename='sync_log.txt', level=logging.INFO, format='%(asctime)s %(message)s')
 
-def obtener_contactos(lista_id):
+def obtener_contactos(lista_id, headers):
     contactos = []
     limit = 500
     offset = 0
 
     while True:
         url = f"{API_BASE_URL}/contacts?listId={lista_id}&limit={limit}&offset={offset}"
-        r = requests.get(url, headers=HEADERS_A)
+        r = requests.get(url, headers=headers)
         r.raise_for_status()
         data = r.json()
         batch = data.get("contacts", [])
@@ -34,13 +34,14 @@ def obtener_contactos(lista_id):
 
     return contactos
 
-def agregar_contactos(lista_id, contactos):
+def agregar_contactos(lista_id, contactos, existentes):
+    #LÓGICA DE FILTRADO
     if not contactos:
         return
 
     for contacto in contactos:
         email = contacto.get("email")
-        if not email:
+        if not email or email in existentes:
             continue
 
         payload = {
@@ -59,9 +60,11 @@ def agregar_contactos(lista_id, contactos):
 
 def sincronizar_listas():
     logging.info("Iniciando sincronización de contactos...")
-    contactos = obtener_contactos(LIST_ID_ORIGEN)
-    agregar_contactos(LIST_ID_DESTINO, contactos)
-    logging.info(f"Sincronización completa. Total: {len(contactos)} contactos.")
+    origen = obtener_contactos(LIST_ID_ORIGEN, HEADERS_A)
+    destino = obtener_contactos(LIST_ID_DESTINO, HEADERS_B)
+    existentes = {c.get("email") for c in destino if c.get("email")}
+    agregar_contactos(LIST_ID_DESTINO, origen, existentes)
+    logging.info(f"Sincronización completa. Total nuevos contactos: {len([c for c in origen if c.get('email') not in existentes])}")
 
 if __name__ == "__main__":
     sincronizar_listas()
